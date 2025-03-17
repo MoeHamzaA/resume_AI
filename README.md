@@ -15,7 +15,7 @@ AI Resume Evaluator Pro is a powerful resume analysis tool that evaluates resume
 
 ### **1. Clone the Repository**
 ```bash
-git clone https://github.com/your-repo/ai-resume-evaluator.git
+git clone [https://github.com/your-repo/ai-resume-evaluator.git](https://github.com/MoeHamzaA/resume_AI.git)
 cd ai-resume-evaluator
 ```
 
