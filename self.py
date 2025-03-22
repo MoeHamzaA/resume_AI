@@ -426,6 +426,9 @@ def comprehensive_resume_evaluation(text, job_title, resume_sections):
                 metrics["improvements"].append("There may be gaps in your work history. Consider addressing these or using a functional resume format.")
     
     # ---- 5. CLARITY EVALUATION ----
+    # Start with a base clarity score
+    metrics["clarity_score"] = 3.0  # Start with a moderate score
+    
     # Check for concise language
     sentences = nltk.sent_tokenize(text)
     avg_words_per_sentence = word_count / max(1, len(sentences))
@@ -433,15 +436,45 @@ def comprehensive_resume_evaluation(text, job_title, resume_sections):
     if avg_words_per_sentence > 25:
         metrics["clarity_score"] -= 1
         metrics["improvements"].append("Your sentences are quite long (avg. {:.1f} words). Use more concise language for better readability.".format(avg_words_per_sentence))
-    elif avg_words_per_sentence < 10:
+    elif 10 <= avg_words_per_sentence <= 20:
         metrics["clarity_score"] += 1
         metrics["strengths"].append("Good use of concise language throughout your resume.")
+    elif avg_words_per_sentence < 10:
+        metrics["clarity_score"] += 0.5
+        metrics["strengths"].append("Very concise language used throughout your resume.")
+    
+    # Check for bullet points and formatting
+    bullet_points = len(re.findall(r'[•\-\*]\s', text))
+    if bullet_points >= 5:
+        metrics["clarity_score"] += 0.5
+        metrics["strengths"].append("Good use of bullet points for clear organization.")
+    elif bullet_points == 0:
+        metrics["clarity_score"] -= 0.5
+        metrics["improvements"].append("Consider using bullet points to organize information more clearly.")
     
     # Check for passive voice (basic implementation)
     passive_count = len(re.findall(r'\b(is|are|was|were|be|been|being)\s+\w+ed\b', text_lower))
     if passive_count > 5:
         metrics["clarity_score"] -= 1
         metrics["improvements"].append("Consider replacing passive voice with active voice for stronger impact.")
+    elif passive_count <= 2:
+        metrics["clarity_score"] += 0.5
+        metrics["strengths"].append("Good use of active voice throughout your resume.")
+    
+    # Check for clear section headings
+    section_headings = len([line for line in text.split('\n') if line.strip() and len(line.strip()) < 30 and line.isupper()])
+    if section_headings >= 3:
+        metrics["clarity_score"] += 0.5
+        metrics["strengths"].append("Clear section headings make your resume easy to navigate.")
+    
+    # Check for consistent formatting
+    inconsistent_formatting = len(re.findall(r'[^\s\w\.\,\;\:\-\(\)\&\@\#\$\%\/\'\"\+]', text))
+    if inconsistent_formatting > 10:
+        metrics["clarity_score"] -= 0.5
+        metrics["improvements"].append("Consider simplifying formatting for better clarity and ATS compatibility.")
+    
+    # Ensure clarity score stays within bounds
+    metrics["clarity_score"] = max(0, min(5, metrics["clarity_score"]))
     
     # ---- CALCULATE FINAL SCORE ----
     # Weight each category
@@ -483,65 +516,181 @@ def analyze_job_title(job_title):
     
     # Common job categories and their associated keywords
     job_categories = {
-        'engineering': ['engineer', 'engineering', 'developer', 'programmer', 'architect', 'coder'],
-        'management': ['manager', 'director', 'supervisor', 'lead', 'chief', 'head'],
-        'analysis': ['analyst', 'researcher', 'scientist', 'specialist', 'consultant'],
-        'design': ['designer', 'architect', 'ui/ux', 'ux', 'ui', 'graphic'],
-        'support': ['support', 'assistant', 'help', 'technician', 'service'],
-        'sales': ['sales', 'account', 'representative', 'business development', 'client'],
-        'marketing': ['marketing', 'brand', 'seo', 'content', 'social media', 'growth'],
-        'finance': ['finance', 'accounting', 'financial', 'accountant', 'bookkeeper', 'controller'],
-        'hr': ['hr', 'human resources', 'recruiter', 'talent', 'people', 'recruitment'],
-        'healthcare': ['doctor', 'nurse', 'physician', 'medical', 'clinical', 'health'],
-        'education': ['teacher', 'professor', 'instructor', 'educator', 'tutor', 'trainer'],
-        'legal': ['lawyer', 'attorney', 'legal', 'counsel', 'paralegal', 'compliance'],
-        'creative': ['writer', 'editor', 'artist', 'creative', 'content', 'producer'],
-        'customer': ['customer', 'client', 'service', 'success', 'support', 'experience'],
-        'administrative': ['admin', 'administrative', 'coordinator', 'secretary', 'clerk', 'receptionist'],
-        'operations': ['operations', 'logistic', 'supply chain', 'warehouse', 'inventory', 'production']
+        'engineering': ['engineer', 'engineering', 'developer', 'programmer', 'architect', 'coder', 'technician', 'specialist'],
+        'management': ['manager', 'director', 'supervisor', 'lead', 'chief', 'head', 'coordinator', 'executive'],
+        'analysis': ['analyst', 'researcher', 'scientist', 'specialist', 'consultant', 'data scientist', 'business analyst'],
+        'design': ['designer', 'architect', 'ui/ux', 'ux', 'ui', 'graphic', 'product designer', 'visual designer'],
+        'support': ['support', 'assistant', 'help', 'technician', 'service', 'customer support', 'technical support'],
+        'sales': ['sales', 'account', 'representative', 'business development', 'client', 'sales manager', 'account executive'],
+        'marketing': ['marketing', 'brand', 'seo', 'content', 'social media', 'growth', 'digital marketing', 'communications'],
+        'finance': ['finance', 'accounting', 'financial', 'accountant', 'bookkeeper', 'controller', 'treasurer', 'auditor'],
+        'hr': ['hr', 'human resources', 'recruiter', 'talent', 'people', 'recruitment', 'personnel', 'benefits'],
+        'healthcare': ['doctor', 'nurse', 'physician', 'medical', 'clinical', 'health', 'therapist', 'pharmacist', 'dentist'],
+        'education': ['teacher', 'professor', 'instructor', 'educator', 'tutor', 'trainer', 'counselor', 'principal'],
+        'legal': ['lawyer', 'attorney', 'legal', 'counsel', 'paralegal', 'compliance', 'regulatory', 'contracts'],
+        'creative': ['writer', 'editor', 'artist', 'creative', 'content', 'producer', 'copywriter', 'journalist'],
+        'customer': ['customer', 'client', 'service', 'success', 'support', 'experience', 'relationship', 'account manager'],
+        'administrative': ['admin', 'administrative', 'coordinator', 'secretary', 'clerk', 'receptionist', 'office manager'],
+        'operations': ['operations', 'logistic', 'supply chain', 'warehouse', 'inventory', 'production', 'facility'],
+        # New categories
+        'research': ['researcher', 'research assistant', 'research associate', 'lab technician', 'scientist', 'investigator'],
+        'it': ['it', 'information technology', 'systems', 'network', 'infrastructure', 'support', 'administrator'],
+        'data': ['data', 'analytics', 'statistics', 'metrics', 'reporting', 'business intelligence', 'data science'],
+        'project': ['project manager', 'program manager', 'scrum master', 'project coordinator', 'delivery manager'],
+        'consulting': ['consultant', 'advisor', 'strategist', 'specialist', 'expert', 'coach', 'mentor'],
+        'manufacturing': ['manufacturing', 'production', 'assembly', 'quality control', 'plant', 'industrial'],
+        'construction': ['construction', 'builder', 'contractor', 'architect', 'site manager', 'project manager'],
+        'hospitality': ['hospitality', 'hotel', 'restaurant', 'chef', 'catering', 'food service', 'tourism'],
+        'retail': ['retail', 'store', 'merchandising', 'buyer', 'shop', 'sales floor', 'inventory'],
+        'media': ['media', 'journalist', 'reporter', 'broadcaster', 'producer', 'editor', 'content creator'],
+        'real_estate': ['real estate', 'property', 'broker', 'agent', 'leasing', 'property manager'],
+        'nonprofit': ['nonprofit', 'ngo', 'charity', 'foundation', 'fundraising', 'program coordinator'],
+        'government': ['government', 'public sector', 'civil service', 'policy', 'administration', 'public affairs'],
+        'science': ['scientist', 'researcher', 'lab', 'research', 'development', 'r&d', 'laboratory'],
+        'environmental': ['environmental', 'sustainability', 'conservation', 'ecology', 'climate', 'energy'],
+        'security': ['security', 'cybersecurity', 'information security', 'security analyst', 'risk', 'compliance'],
+        'transportation': ['transportation', 'logistics', 'shipping', 'fleet', 'driver', 'dispatcher'],
+        'agriculture': ['agriculture', 'farming', 'agribusiness', 'horticulture', 'crop', 'livestock'],
+        'fitness': ['fitness', 'personal trainer', 'coach', 'instructor', 'wellness', 'health'],
+        'insurance': ['insurance', 'underwriter', 'claims', 'actuary', 'risk assessment', 'benefits'],
+        'telecommunications': ['telecommunications', 'network', 'communications', 'telecom', 'wireless'],
+        'automotive': ['automotive', 'mechanic', 'technician', 'service', 'repair', 'dealership'],
+        'aviation': ['aviation', 'pilot', 'aircraft', 'airline', 'airport', 'flight'],
+        'pharmaceutical': ['pharmaceutical', 'pharma', 'drug development', 'clinical research', 'biotech'],
+        'entertainment': ['entertainment', 'film', 'music', 'gaming', 'production', 'artist'],
+        'fashion': ['fashion', 'apparel', 'designer', 'merchandiser', 'buyer', 'stylist'],
+        'social_services': ['social services', 'counselor', 'social worker', 'case manager', 'community'],
+        'quality': ['quality assurance', 'qa', 'quality control', 'testing', 'compliance', 'inspector'],
+        'maintenance': ['maintenance', 'facilities', 'repair', 'technician', 'service', 'building'],
+        'energy': ['energy', 'power', 'utilities', 'renewable', 'electrical', 'oil and gas']
     }
     
     # Domain-specific dictionaries for popular fields
     domain_keywords = {
         'software': ['programming', 'coding', 'development', 'algorithms', 'testing', 'debugging', 
                     'software architecture', 'apis', 'web', 'mobile', 'frontend', 'backend', 'full stack',
-                    'object-oriented', 'functional programming', 'version control', 'ci/cd'],
+                    'object-oriented', 'functional programming', 'version control', 'ci/cd', 'unit testing',
+                    'integration testing', 'code review', 'agile development', 'scrum', 'devops'],
         
         'data': ['analytics', 'big data', 'data mining', 'statistics', 'data visualization', 
                 'machine learning', 'artificial intelligence', 'deep learning', 'predictive modeling',
-                'data warehousing', 'etl', 'bi', 'reporting', 'dashboards'],
+                'data warehousing', 'etl', 'bi', 'reporting', 'dashboards', 'data science',
+                'data engineering', 'data architecture', 'data governance', 'data quality'],
         
         'cloud': ['aws', 'azure', 'gcp', 'infrastructure', 'virtualization', 'containers',
                  'microservices', 'serverless', 'iaas', 'paas', 'saas', 'cloud security',
-                 'cloud architecture', 'devops', 'automation', 'scalability'],
+                 'cloud architecture', 'devops', 'automation', 'scalability', 'cloud migration',
+                 'hybrid cloud', 'multi-cloud', 'cloud native', 'cloud optimization'],
         
         'security': ['cybersecurity', 'infosec', 'security protocols', 'penetration testing', 
                     'vulnerability assessment', 'encryption', 'authentication', 'compliance',
-                    'security audits', 'threat detection', 'incident response'],
+                    'security audits', 'threat detection', 'incident response', 'security architecture',
+                    'network security', 'application security', 'cloud security', 'devsecops'],
         
         'project': ['project management', 'agile', 'scrum', 'kanban', 'waterfall', 'prince2',
                    'risk management', 'requirements gathering', 'stakeholder management', 
-                   'scheduling', 'budget management', 'resource allocation'],
+                   'scheduling', 'budget management', 'resource allocation', 'project planning',
+                   'project execution', 'project monitoring', 'project closure'],
         
         'finance': ['financial analysis', 'accounting', 'budgeting', 'forecasting', 'financial reporting',
                    'financial modeling', 'tax', 'audit', 'compliance', 'risk assessment',
-                   'investment analysis', 'portfolio management'],
+                   'investment analysis', 'portfolio management', 'financial planning',
+                   'cost analysis', 'revenue management', 'financial strategy'],
         
         'marketing': ['market research', 'branding', 'advertising', 'digital marketing', 'seo', 'sem', 
                      'social media marketing', 'content marketing', 'email marketing', 'campaign management',
-                     'marketing analytics', 'conversion optimization'],
+                     'marketing analytics', 'conversion optimization', 'marketing automation',
+                     'customer acquisition', 'marketing strategy', 'brand management'],
         
         'healthcare': ['patient care', 'clinical procedures', 'medical terminology', 'healthcare regulations',
                       'electronic health records', 'patient management', 'medical coding',
-                      'treatment planning', 'disease management'],
+                      'treatment planning', 'disease management', 'healthcare compliance',
+                      'medical billing', 'healthcare technology', 'patient safety'],
         
         'hr': ['recruitment', 'talent acquisition', 'onboarding', 'employee relations', 'performance management',
               'compensation', 'benefits', 'hr policies', 'organizational development',
-              'training', 'employee engagement', 'diversity and inclusion'],
+              'training', 'employee engagement', 'diversity and inclusion', 'hr analytics',
+              'succession planning', 'workforce planning', 'labor relations'],
         
         'legal': ['legal research', 'contracts', 'compliance', 'litigation', 'negotiation',
                  'legal documentation', 'case management', 'legal advice', 'legal analysis',
-                 'regulatory affairs', 'intellectual property']
+                 'regulatory affairs', 'intellectual property', 'corporate law', 'employment law',
+                 'legal technology', 'legal writing', 'legal ethics'],
+
+        'education': ['curriculum development', 'instructional design', 'educational technology',
+                     'student assessment', 'classroom management', 'special education',
+                     'online learning', 'educational leadership', 'student engagement',
+                     'educational psychology', 'teaching methods', 'education policy'],
+
+        'manufacturing': ['production planning', 'quality control', 'lean manufacturing',
+                         'supply chain', 'inventory management', 'process improvement',
+                         'industrial engineering', 'production scheduling', 'manufacturing operations',
+                         'equipment maintenance', 'safety compliance', 'cost reduction'],
+
+        'retail': ['merchandising', 'inventory management', 'retail operations',
+                  'store management', 'visual merchandising', 'pos systems',
+                  'customer service', 'sales management', 'retail analytics',
+                  'loss prevention', 'retail marketing', 'e-commerce'],
+
+        'construction': ['project planning', 'site management', 'safety compliance',
+                        'building codes', 'construction management', 'cost estimation',
+                        'contract administration', 'quality control', 'scheduling',
+                        'resource management', 'risk assessment'],
+
+        'hospitality': ['guest services', 'hotel operations', 'food service',
+                       'event planning', 'revenue management', 'hospitality marketing',
+                       'customer experience', 'reservation systems', 'facility management',
+                       'hospitality analytics', 'tourism management'],
+
+        'media': ['content creation', 'media production', 'broadcasting',
+                 'digital media', 'social media', 'content strategy',
+                 'media planning', 'audience engagement', 'media analytics',
+                 'multimedia production', 'content management'],
+
+        'automotive': ['vehicle maintenance', 'automotive technology', 'diagnostics',
+                      'repair procedures', 'quality control', 'service management',
+                      'parts inventory', 'automotive systems', 'customer service',
+                      'technical documentation'],
+
+        'environmental': ['environmental compliance', 'sustainability', 'environmental impact',
+                         'waste management', 'environmental monitoring', 'conservation',
+                         'renewable energy', 'environmental policy', 'climate change',
+                         'environmental assessment'],
+
+        'telecommunications': ['network infrastructure', 'telecom systems', 'wireless technology',
+                             'network maintenance', 'telecom operations', 'service delivery',
+                             'network security', 'telecommunications policy', 'customer support',
+                             'telecommunications regulations'],
+
+        'pharmaceutical': ['drug development', 'clinical research', 'regulatory compliance',
+                         'quality control', 'pharmaceutical manufacturing', 'research and development',
+                         'drug safety', 'clinical trials', 'pharmaceutical marketing',
+                         'pharmaceutical regulations'],
+
+        'nonprofit': ['program management', 'fundraising', 'grant writing',
+                     'community outreach', 'volunteer management', 'nonprofit operations',
+                     'donor relations', 'impact assessment', 'advocacy',
+                     'nonprofit compliance'],
+
+        'government': ['public administration', 'policy implementation', 'regulatory compliance',
+                      'public service', 'government operations', 'public policy',
+                      'legislative affairs', 'government relations', 'public programs',
+                      'civic engagement'],
+
+        'real_estate': ['property management', 'real estate transactions', 'leasing',
+                       'property valuation', 'real estate marketing', 'market analysis',
+                       'property maintenance', 'tenant relations', 'real estate finance',
+                       'real estate development'],
+
+        'insurance': ['risk assessment', 'underwriting', 'claims processing',
+                     'insurance policies', 'actuarial analysis', 'insurance regulations',
+                     'policy administration', 'insurance marketing', 'customer service',
+                     'insurance compliance'],
+
+        'transportation': ['logistics management', 'fleet operations', 'transportation planning',
+                         'route optimization', 'shipping coordination', 'compliance',
+                         'safety management', 'transportation regulations', 'cost control',
+                         'fleet maintenance']
     }
     
     # Identify job category
@@ -945,22 +1094,203 @@ def generate_role_specific_feedback(job_title, resume_sections, evaluation_metri
             if not any(term in resume_sections.get('experience', '').lower() for term in ['revenue', 'quota', 'sales', 'client']):
                 feedback.append("Quantify your sales achievements with specific revenue figures or percentages.")
     
+        elif main_category == 'healthcare':
+            if not any(term in resume_sections.get('experience', '').lower() for term in ['patient', 'clinical', 'medical', 'health']):
+                feedback.append("Include specific medical procedures, patient care metrics, and clinical experience details.")
+            else:
+                feedback.append("Your clinical experience is well-highlighted. Consider adding more quantifiable patient care outcomes.")
+
+        elif main_category == 'finance':
+            if not any(term in resume_sections.get('experience', '').lower() for term in ['financial', 'budget', 'revenue', 'analysis']):
+                feedback.append("Add specific financial metrics, portfolio performance, or cost-saving achievements.")
+            else:
+                feedback.append("Your financial expertise is evident. Consider highlighting regulatory compliance experience.")
+
+        elif main_category == 'education':
+            if not any(term in resume_sections.get('experience', '').lower() for term in ['teach', 'curriculum', 'student', 'education']):
+                feedback.append("Include teaching methodologies, student achievement metrics, and curriculum development experience.")
+            else:
+                feedback.append("Your teaching experience is clear. Consider adding specific student success metrics.")
+
+        elif main_category == 'technology':
+            tech_terms = ['software', 'development', 'programming', 'code', 'technical']
+            if not any(term in resume_sections.get('experience', '').lower() for term in tech_terms):
+                feedback.append("Add more technical projects, programming languages, and development methodologies.")
+            else:
+                feedback.append("Your technical background is solid. Consider highlighting system architecture or scalability experience.")
+
+        elif main_category == 'research':
+            research_terms = ['research', 'study', 'analysis', 'methodology', 'findings']
+            if not any(term in resume_sections.get('experience', '').lower() for term in research_terms):
+                feedback.append("Include research methodologies, published works, and significant findings in your field.")
+            else:
+                feedback.append("Your research experience is evident. Consider highlighting impact and citations of your work.")
+
+        elif main_category == 'marketing':
+            marketing_terms = ['campaign', 'marketing', 'brand', 'social media', 'content']
+            if not any(term in resume_sections.get('experience', '').lower() for term in marketing_terms):
+                feedback.append("Add specific marketing campaigns, ROI metrics, and audience growth achievements.")
+            else:
+                feedback.append("Your marketing experience is clear. Consider adding more conversion and engagement metrics.")
+
+        elif main_category == 'customer_service':
+            service_terms = ['customer', 'service', 'support', 'client', 'resolution']
+            if not any(term in resume_sections.get('experience', '').lower() for term in service_terms):
+                feedback.append("Include customer satisfaction metrics, resolution rates, and service improvement initiatives.")
+            else:
+                feedback.append("Your customer service background is evident. Add more specific performance metrics.")
+
+        elif main_category == 'operations':
+            ops_terms = ['operations', 'process', 'efficiency', 'optimization', 'workflow']
+            if not any(term in resume_sections.get('experience', '').lower() for term in ops_terms):
+                feedback.append("Add operational efficiency metrics, process improvements, and resource optimization examples.")
+            else:
+                feedback.append("Your operations experience is clear. Consider highlighting cost reduction achievements.")
+
+        elif main_category == 'legal':
+            legal_terms = ['legal', 'law', 'compliance', 'regulation', 'counsel']
+            if not any(term in resume_sections.get('experience', '').lower() for term in legal_terms):
+                feedback.append("Include specific areas of law, case outcomes, and regulatory compliance experience.")
+            else:
+                feedback.append("Your legal background is evident. Consider highlighting notable case victories or settlements.")
+
+        elif main_category == 'creative':
+            creative_terms = ['design', 'creative', 'art', 'portfolio', 'visual']
+            if not any(term in resume_sections.get('experience', '').lower() for term in creative_terms):
+                feedback.append("Include a portfolio link and highlight specific creative projects and their impact.")
+            else:
+                feedback.append("Your creative work is well-represented. Consider adding more metrics on project outcomes.")
+
+        elif main_category == 'hr':
+            hr_terms = ['recruitment', 'hr', 'talent', 'employee', 'personnel']
+            if not any(term in resume_sections.get('experience', '').lower() for term in hr_terms):
+                feedback.append("Add recruitment metrics, employee engagement initiatives, and HR policy developments.")
+            else:
+                feedback.append("Your HR experience is clear. Consider highlighting retention and satisfaction metrics.")
+
+        elif main_category == 'manufacturing':
+            mfg_terms = ['manufacturing', 'production', 'quality', 'assembly', 'operations']
+            if not any(term in resume_sections.get('experience', '').lower() for term in mfg_terms):
+                feedback.append("Include manufacturing processes, quality metrics, and production optimization achievements.")
+            else:
+                feedback.append("Your manufacturing experience is evident. Consider adding more efficiency and quality metrics.")
+
+        elif main_category == 'construction':
+            const_terms = ['construction', 'building', 'project', 'site', 'safety']
+            if not any(term in resume_sections.get('experience', '').lower() for term in const_terms):
+                feedback.append("Add construction project details, safety compliance, and budget management experience.")
+            else:
+                feedback.append("Your construction experience is clear. Consider highlighting project completion metrics.")
+
+        elif main_category == 'hospitality':
+            hosp_terms = ['hospitality', 'guest', 'hotel', 'restaurant', 'service']
+            if not any(term in resume_sections.get('experience', '').lower() for term in hosp_terms):
+                feedback.append("Include guest satisfaction metrics, revenue management, and service quality achievements.")
+            else:
+                feedback.append("Your hospitality experience is evident. Add more customer satisfaction metrics.")
+
+        elif main_category == 'retail':
+            retail_terms = ['retail', 'sales', 'store', 'merchandise', 'inventory']
+            if not any(term in resume_sections.get('experience', '').lower() for term in retail_terms):
+                feedback.append("Add retail sales metrics, inventory management, and customer service achievements.")
+            else:
+                feedback.append("Your retail experience is clear. Consider highlighting sales and efficiency metrics.")
+
+        elif main_category == 'media':
+            media_terms = ['media', 'content', 'production', 'broadcast', 'journalism']
+            if not any(term in resume_sections.get('experience', '').lower() for term in media_terms):
+                feedback.append("Include media production details, audience metrics, and content performance statistics.")
+            else:
+                feedback.append("Your media experience is evident. Add more audience engagement metrics.")
+
+        elif main_category == 'environmental':
+            env_terms = ['environmental', 'sustainability', 'conservation', 'compliance']
+            if not any(term in resume_sections.get('experience', '').lower() for term in env_terms):
+                feedback.append("Add environmental impact assessments, sustainability initiatives, and compliance achievements.")
+            else:
+                feedback.append("Your environmental experience is clear. Consider highlighting project outcomes.")
+
+        elif main_category == 'pharmaceutical':
+            pharma_terms = ['pharmaceutical', 'clinical', 'research', 'drug', 'development']
+            if not any(term in resume_sections.get('experience', '').lower() for term in pharma_terms):
+                feedback.append("Include clinical research experience, drug development projects, and regulatory compliance.")
+            else:
+                feedback.append("Your pharmaceutical experience is evident. Add more research outcomes.")
+
+        elif main_category == 'telecommunications':
+            telecom_terms = ['telecommunications', 'network', 'infrastructure', 'wireless']
+            if not any(term in resume_sections.get('experience', '').lower() for term in telecom_terms):
+                feedback.append("Add network infrastructure projects, service delivery metrics, and technical achievements.")
+            else:
+                feedback.append("Your telecommunications experience is clear. Highlight network performance metrics.")
+
+        elif main_category == 'automotive':
+            auto_terms = ['automotive', 'vehicle', 'repair', 'maintenance', 'service']
+            if not any(term in resume_sections.get('experience', '').lower() for term in auto_terms):
+                feedback.append("Include automotive repair experience, service metrics, and technical certifications.")
+            else:
+                feedback.append("Your automotive experience is evident. Add more service quality metrics.")
+
+        elif main_category == 'insurance':
+            insurance_terms = ['insurance', 'claims', 'underwriting', 'risk', 'policy']
+            if not any(term in resume_sections.get('experience', '').lower() for term in insurance_terms):
+                feedback.append("Add insurance policy management, claims processing, and risk assessment experience.")
+            else:
+                feedback.append("Your insurance experience is clear. Consider highlighting performance metrics.")
+
+        elif main_category == 'real_estate':
+            re_terms = ['real estate', 'property', 'leasing', 'sales', 'management']
+            if not any(term in resume_sections.get('experience', '').lower() for term in re_terms):
+                feedback.append("Include property management experience, sales/leasing metrics, and market analysis.")
+            else:
+                feedback.append("Your real estate experience is evident. Add more transaction metrics.")
+
+        elif main_category == 'nonprofit':
+            nonprofit_terms = ['nonprofit', 'fundraising', 'program', 'community', 'volunteer']
+            if not any(term in resume_sections.get('experience', '').lower() for term in nonprofit_terms):
+                feedback.append("Add program management experience, fundraising achievements, and community impact metrics.")
+            else:
+                feedback.append("Your nonprofit experience is clear. Highlight more program outcomes.")
+
+        elif main_category == 'government':
+            gov_terms = ['government', 'public', 'policy', 'administration', 'regulatory']
+            if not any(term in resume_sections.get('experience', '').lower() for term in gov_terms):
+                feedback.append("Include public service experience, policy implementation, and regulatory compliance.")
+            else:
+                feedback.append("Your government experience is evident. Add more policy impact metrics.")
+
+        elif main_category == 'transportation':
+            transport_terms = ['transportation', 'logistics', 'fleet', 'shipping', 'delivery']
+            if not any(term in resume_sections.get('experience', '').lower() for term in transport_terms):
+                feedback.append("Add logistics management, fleet operations, and delivery performance metrics.")
+            else:
+                feedback.append("Your transportation experience is clear. Consider highlighting efficiency metrics.")
+
+        elif main_category == 'agriculture':
+            ag_terms = ['agriculture', 'farming', 'crop', 'livestock', 'production']
+            if not any(term in resume_sections.get('experience', '').lower() for term in ag_terms):
+                feedback.append("Include agricultural production metrics, crop/livestock management, and yield improvements.")
+            else:
+                feedback.append("Your agricultural experience is evident. Add more production metrics.")
+
+        elif main_category == 'fitness':
+            fitness_terms = ['fitness', 'training', 'health', 'wellness', 'coaching']
+            if not any(term in resume_sections.get('experience', '').lower() for term in fitness_terms):
+                feedback.append("Add client training achievements, program development, and fitness assessment experience.")
+            else:
+                feedback.append("Your fitness experience is clear. Highlight more client success metrics.")
+
     # Add domain-specific feedback
     if job_analysis['domains']:
-        main_domain = job_analysis['domains'][0] if job_analysis['domains'] else None
-        
-        if main_domain == 'software':
-            feedback.append("Highlight specific programming languages and frameworks you're proficient in.")
-            
-        elif main_domain == 'data':
-            feedback.append("Showcase your experience with data analysis tools and techniques.")
-            
-        elif main_domain == 'cloud':
-            feedback.append("Demonstrate your experience with specific cloud platforms and services.")
-            
-        elif main_domain == 'security':
-            feedback.append("Emphasize your knowledge of security protocols and compliance standards.")
-    
+        # Add domain-specific recommendations based on identified domains
+        for domain in job_analysis['domains']:
+            if domain == 'software':
+                feedback.append("Consider highlighting your software development methodologies and technical stack.")
+            elif domain == 'data':
+                feedback.append("Emphasize your data analysis tools and quantifiable project outcomes.")
+            elif domain == 'cloud':
+                feedback.append("Highlight your experience with specific cloud platforms and architectures.")
+
     # Add seniority-specific feedback
     if job_analysis['seniority'] == 'junior':
         feedback.append("Focus on your education, relevant coursework, and eagerness to learn.")
@@ -999,6 +1329,66 @@ def generate_role_specific_feedback(job_title, resume_sections, evaluation_metri
         
     elif 'designer' in job_title_lower:
         feedback.append("Demonstrate your design process and how your work has impacted user experience or business goals.")
+    
+    elif 'sales' in job_title_lower or 'business development' in job_title_lower:
+        feedback.append("Quantify your sales achievements with specific revenue figures, growth percentages, and client acquisition metrics.")
+    
+    elif 'marketing' in job_title_lower:
+        feedback.append("Showcase your campaign results with concrete metrics like ROI, engagement rates, and audience growth statistics.")
+    
+    elif 'data scientist' in job_title_lower:
+        feedback.append("Detail your experience with specific machine learning models, data processing pipelines, and the business impact of your analyses.")
+    
+    elif 'product' in job_title_lower:
+        feedback.append("Highlight your experience in product lifecycle management, user research, and cross-functional team collaboration.")
+    
+    elif 'doctor' in job_title_lower or 'physician' in job_title_lower:
+        feedback.append("Emphasize your clinical expertise, patient care outcomes, and any specialized medical procedures or research.")
+    
+    elif 'nurse' in job_title_lower:
+        feedback.append("Detail your experience with specific medical procedures, patient care metrics, and healthcare technology systems.")
+    
+    elif 'teacher' in job_title_lower or 'instructor' in job_title_lower:
+        feedback.append("Highlight student achievement metrics, innovative teaching methods, and curriculum development experience.")
+    
+    elif 'lawyer' in job_title_lower or 'attorney' in job_title_lower:
+        feedback.append("Showcase your case success rates, expertise in specific areas of law, and experience with notable legal proceedings.")
+    
+    elif 'accountant' in job_title_lower or 'finance' in job_title_lower:
+        feedback.append("Emphasize your experience with specific financial software, regulatory compliance, and any cost-saving initiatives.")
+    
+    elif 'hr' in job_title_lower or 'human resources' in job_title_lower:
+        feedback.append("Detail your experience with recruitment metrics, employee engagement initiatives, and HR policy development.")
+    
+    elif 'project manager' in job_title_lower:
+        feedback.append("Quantify project outcomes, budget management success, and team size/scope of projects managed.")
+    
+    elif 'researcher' in job_title_lower or 'scientist' in job_title_lower:
+        feedback.append("Highlight your publications, research methodologies, and the impact of your findings in your field.")
+    
+    elif 'content' in job_title_lower or 'writer' in job_title_lower:
+        feedback.append("Showcase your content performance metrics, audience engagement, and experience with different content formats.")
+    
+    elif 'customer service' in job_title_lower or 'support' in job_title_lower:
+        feedback.append("Emphasize your customer satisfaction scores, resolution rates, and experience with support tools/systems.")
+    
+    elif 'consultant' in job_title_lower:
+        feedback.append("Detail specific client outcomes, ROI delivered, and expertise in particular industries or methodologies.")
+    
+    elif 'operations' in job_title_lower:
+        feedback.append("Highlight process improvements, efficiency metrics, and experience with operations management tools.")
+    
+    elif 'chef' in job_title_lower or 'culinary' in job_title_lower:
+        feedback.append("Showcase your menu development experience, kitchen management skills, and any signature dishes or specialties.")
+    
+    elif 'social media' in job_title_lower:
+        feedback.append("Detail your experience with specific platforms, growth metrics, and successful social media campaigns.")
+    
+    elif 'security' in job_title_lower:
+        feedback.append("Emphasize your experience with security protocols, incident response, and relevant certifications.")
+    
+    elif 'therapist' in job_title_lower or 'counselor' in job_title_lower:
+        feedback.append("Highlight your counseling methodologies, types of cases handled, and any specialized therapeutic approaches.")
     
     # Combine feedback points into a cohesive paragraph
     combined_feedback = " ".join(feedback[:3])  # Limit to top 3 points for conciseness
@@ -1098,42 +1488,229 @@ def extract_skills_from_text(skills_text):
         
     # Common technical skills - we'll use this to validate extracted skills
     common_tech_skills = [
-        'python', 'java', 'javascript', 'c++', 'c#', 'ruby', 'go', 'php', 'html', 'css',
-        'react', 'angular', 'vue', 'node', 'express', 'django', 'flask', 'spring', 'rails',
-        'aws', 'azure', 'gcp', 'cloud', 'docker', 'kubernetes', 'terraform', 'ansible',
-        'jenkins', 'git', 'ci/cd', 'devops', 'linux', 'unix', 'windows', 'bash', 'powershell',
-        'sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'oracle', 'nosql', 'database',
-        'machine learning', 'ai', 'data science', 'analytics', 'tableau', 'power bi',
-        'hadoop', 'spark', 'kafka', 'elasticsearch', 'networking', 'security', 'api',
-        'rest', 'soap', 'json', 'xml', 'graphql', 'agile', 'scrum', 'kanban', 'waterfall',
-        'jira', 'confluence', 'slack', 'teams', 'office', 'excel', 'word', 'powerpoint',
-        'photoshop', 'illustrator', 'figma', 'sketch', 'indesign', 'autocad',
-        'leadership', 'project management', 'communication', 'teamwork', 'problem solving',
-        'critical thinking', 'time management', 'organization', 'presentation', 'negotiation',
-        'cybersecurity', 'penetration testing', 'vulnerability', 'compliance', 'auditing',
-        'iot', 'blockchain', 'virtualization', 'containerization', 'serverless',
-        'ec2', 's3', 'lambda', 'route 53', 'vpc', 'iam', 'rds', 'dynamodb',
-        'cloud security', 'network security', 'firewall', 'encryption', 'authentication',
-        # Add non-tech professional skills
-        'project management', 'leadership', 'team management', 'budgeting', 'forecasting',
-        'strategic planning', 'business development', 'sales', 'marketing', 'customer service',
-        'account management', 'client relationship', 'operations management', 'supply chain',
-        'logistics', 'quality assurance', 'public speaking', 'writing', 'editing',
-        'research', 'analysis', 'reporting', 'training', 'mentoring', 'coaching',
-        'negotiation', 'conflict resolution', 'decision making', 'problem solving',
-        'critical thinking', 'creativity', 'innovation', 'adaptability', 'flexibility',
-        # Healthcare skills
-        'patient care', 'clinical', 'medical terminology', 'electronic health records',
-        'treatment planning', 'diagnostics', 'patient assessment', 'vital signs',
-        'medical coding', 'medical billing', 'pharmacy', 'pharmacology',
-        # Finance/accounting skills
-        'accounting', 'bookkeeping', 'financial analysis', 'financial reporting',
-        'tax preparation', 'budgeting', 'forecasting', 'financial modeling',
-        'quickbooks', 'sap', 'oracle financials', 'investment analysis',
-        # Educational skills
-        'curriculum development', 'lesson planning', 'student assessment',
-        'classroom management', 'educational technology', 'instructional design',
-        'teaching', 'training', 'e-learning', 'remote teaching'
+        # Programming Languages
+        'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'ruby', 'go', 'php', 'swift', 'kotlin', 'rust',
+        'scala', 'r', 'matlab', 'perl', 'haskell', 'lua', 'dart', 'groovy', 'objective-c', 'assembly', 'cobol',
+        'fortran', 'vba', 'shell scripting', 'powershell', 'bash', 'tcl', 'erlang', 'clojure', 'f#', 'julia',
+        
+        # Web Development - Frontend
+        'html', 'css', 'sass', 'less', 'javascript', 'typescript', 'react', 'angular', 'vue.js', 'svelte',
+        'jquery', 'bootstrap', 'material-ui', 'tailwind css', 'webpack', 'babel', 'redux', 'vuex', 'next.js',
+        'nuxt.js', 'gatsby', 'ember.js', 'backbone.js', 'three.js', 'd3.js', 'webgl', 'web components',
+        'progressive web apps', 'service workers', 'web sockets', 'web assembly', 'web workers',
+        'responsive design', 'cross-browser compatibility', 'web accessibility', 'web performance optimization',
+        
+        # Web Development - Backend
+        'node.js', 'express.js', 'django', 'flask', 'spring', 'spring boot', 'ruby on rails', 'laravel',
+        'asp.net core', 'fastapi', 'nest.js', 'graphql', 'rest apis', 'soap', 'grpc', 'websockets',
+        'microservices', 'oauth', 'jwt', 'web security', 'cors', 'rate limiting', 'caching strategies',
+        
+        # Databases & Data Storage
+        'sql', 'mysql', 'postgresql', 'oracle', 'sql server', 'sqlite', 'mongodb', 'cassandra', 'redis',
+        'elasticsearch', 'dynamodb', 'couchbase', 'neo4j', 'influxdb', 'mariadb', 'firebase', 'supabase',
+        'cockroachdb', 'timescaledb', 'clickhouse', 'snowflake', 'big query', 'redshift', 'data warehousing',
+        'etl', 'data modeling', 'database optimization', 'database administration', 'data migration',
+        
+        # Cloud Computing & DevOps
+        'aws', 'azure', 'google cloud platform', 'alibaba cloud', 'ibm cloud', 'oracle cloud', 'digitalocean',
+        'docker', 'kubernetes', 'terraform', 'ansible', 'chef', 'puppet', 'jenkins', 'gitlab ci', 'github actions',
+        'circleci', 'travis ci', 'prometheus', 'grafana', 'elk stack', 'nginx', 'apache', 'load balancing',
+        'auto scaling', 'serverless', 'lambda functions', 'cloud formation', 'azure resource manager',
+        'infrastructure as code', 'configuration management', 'service mesh', 'istio', 'envoy',
+        
+        # Cloud Services & Tools
+        'ec2', 's3', 'rds', 'dynamodb', 'sqs', 'sns', 'cloudfront', 'route 53', 'vpc', 'iam',
+        'azure vm', 'azure storage', 'azure functions', 'cosmos db', 'azure devops', 'app service',
+        'google compute engine', 'google kubernetes engine', 'cloud storage', 'cloud functions',
+        'cloud pub/sub', 'big query', 'cloud spanner', 'firebase', 'heroku', 'netlify', 'vercel',
+        
+        # Data Science & Machine Learning
+        'machine learning', 'deep learning', 'artificial intelligence', 'neural networks', 'computer vision',
+        'natural language processing', 'reinforcement learning', 'data mining', 'statistical analysis',
+        'predictive modeling', 'tensorflow', 'pytorch', 'keras', 'scikit-learn', 'pandas', 'numpy',
+        'scipy', 'matplotlib', 'seaborn', 'plotly', 'jupyter', 'opencv', 'nltk', 'spacy', 'gensim',
+        'xgboost', 'lightgbm', 'catboost', 'h2o', 'mlflow', 'kubeflow', 'data version control',
+        
+        # Big Data Technologies
+        'hadoop', 'spark', 'hive', 'pig', 'kafka', 'storm', 'flink', 'cassandra', 'hbase',
+        'data lakes', 'data warehousing', 'etl pipelines', 'data streaming', 'real-time analytics',
+        'batch processing', 'distributed computing', 'map reduce', 'yarn', 'zookeeper', 'airflow',
+        'nifi', 'talend', 'informatica', 'databricks', 'snowflake', 'redshift', 'big query',
+        
+        # Cybersecurity
+        'network security', 'application security', 'cloud security', 'security architecture',
+        'penetration testing', 'vulnerability assessment', 'ethical hacking', 'cryptography',
+        'security protocols', 'firewall configuration', 'intrusion detection', 'incident response',
+        'security information and event management (siem)', 'identity and access management',
+        'security automation', 'threat intelligence', 'malware analysis', 'forensics',
+        'devsecops', 'zero trust architecture', 'compliance frameworks', 'security auditing',
+        
+        # Mobile Development
+        'ios development', 'android development', 'react native', 'flutter', 'xamarin',
+        'swift', 'objective-c', 'kotlin', 'java android', 'mobile ui/ux', 'responsive design',
+        'progressive web apps', 'ionic', 'cordova', 'mobile security', 'app store optimization',
+        'mobile analytics', 'push notifications', 'mobile testing', 'mobile performance optimization',
+        
+        # Testing & Quality Assurance
+        'unit testing', 'integration testing', 'functional testing', 'automated testing',
+        'performance testing', 'load testing', 'stress testing', 'security testing',
+        'test automation', 'selenium', 'appium', 'junit', 'pytest', 'jest', 'mocha',
+        'cypress', 'postman', 'swagger', 'test case design', 'bug tracking', 'quality metrics',
+        'continuous testing', 'test-driven development', 'behavior-driven development',
+        
+        # Development Tools & Practices
+        'git', 'svn', 'mercurial', 'jira', 'confluence', 'trello', 'agile', 'scrum',
+        'kanban', 'waterfall', 'code review', 'pair programming', 'continuous integration',
+        'continuous deployment', 'version control', 'documentation', 'api design',
+        'software architecture', 'design patterns', 'clean code', 'refactoring',
+        'performance optimization', 'debugging', 'monitoring', 'logging',
+        
+        # Emerging Technologies
+        'blockchain', 'smart contracts', 'ethereum', 'solidity', 'web3', 'nft',
+        'augmented reality', 'virtual reality', 'mixed reality', 'internet of things',
+        'edge computing', 'quantum computing', 'robotics', '5g', 'computer vision',
+        'speech recognition', 'natural language generation', 'autonomous systems',
+        'digital twins', 'metaverse', 'cryptocurrency', 'distributed ledger',
+        
+        # Business Intelligence & Analytics
+        'tableau', 'power bi', 'qlik', 'looker', 'sisense', 'data visualization',
+        'business analytics', 'data analysis', 'statistical analysis', 'predictive analytics',
+        'prescriptive analytics', 'data modeling', 'data warehousing', 'olap',
+        'reporting tools', 'dashboard design', 'kpi monitoring', 'data governance',
+        'data quality management', 'master data management', 'business intelligence',
+        
+        # Project Management & Collaboration
+        'project management', 'agile methodologies', 'scrum master', 'product owner',
+        'sprint planning', 'backlog management', 'risk management', 'stakeholder management',
+        'resource allocation', 'budgeting', 'time tracking', 'project scheduling',
+        'team collaboration', 'remote work tools', 'virtual team management',
+        'project documentation', 'change management', 'release management',
+        
+        # System Administration
+        'linux administration', 'windows server', 'active directory', 'dns', 'dhcp',
+        'network administration', 'system monitoring', 'backup and recovery',
+        'disaster recovery', 'high availability', 'load balancing', 'virtualization',
+        'vmware', 'hyper-v', 'server maintenance', 'patch management',
+        'system security', 'performance tuning', 'troubleshooting',
+        
+        # UI/UX Design
+        'user interface design', 'user experience design', 'wireframing', 'prototyping',
+        'figma', 'sketch', 'adobe xd', 'invision', 'zeplin', 'principle',
+        'user research', 'usability testing', 'interaction design', 'visual design',
+        'information architecture', 'accessibility design', 'responsive design',
+        'mobile-first design', 'design systems', 'design thinking',
+
+        # Healthcare & Medical
+        'patient care', 'vital signs monitoring', 'medical terminology', 'electronic health records (ehr)',
+        'hipaa compliance', 'medical coding', 'clinical documentation', 'infection control',
+        'patient assessment', 'medication administration', 'wound care', 'phlebotomy',
+        'diagnostic procedures', 'medical imaging', 'laboratory testing', 'emergency medicine',
+        'telemedicine', 'patient education', 'medical device operation', 'healthcare regulations',
+        'medical billing', 'anatomy knowledge', 'physiology', 'pharmacology', 'nursing care plans',
+        'surgical procedures', 'mental health assessment', 'rehabilitation therapy', 'immunizations',
+        'medical research', 'clinical trials', 'disease management', 'preventive care',
+
+        # Business & Finance
+        'financial analysis', 'market research', 'strategic planning', 'business development',
+        'account management', 'sales strategies', 'customer relationship management (crm)',
+        'financial modeling', 'business intelligence', 'profit & loss management',
+        'business process improvement', 'contract negotiation', 'revenue forecasting',
+        'cost analysis', 'budget management', 'investment analysis', 'risk assessment',
+        'mergers & acquisitions', 'business valuation', 'financial reporting',
+        'tax planning', 'audit procedures', 'regulatory compliance', 'business law',
+        'supply chain management', 'inventory management', 'vendor relations',
+        'business strategy', 'market analysis', 'competitive analysis', 'pricing strategies',
+
+        # Education & Teaching
+        'curriculum development', 'lesson planning', 'student assessment', 'classroom management',
+        'educational technology', 'differentiated instruction', 'special education',
+        'student engagement', 'behavior management', 'educational psychology',
+        'learning theories', 'instructional design', 'distance learning', 'e-learning',
+        'student counseling', 'academic advising', 'educational leadership',
+        'standardized testing', 'individualized education plans (iep)', 'gifted education',
+        'early childhood education', 'adult education', 'stem education', 'literacy instruction',
+        'educational assessment', 'student motivation', 'parent communication', 'teaching methods',
+
+        # Legal & Compliance
+        'legal research', 'contract law', 'litigation', 'regulatory compliance',
+        'legal documentation', 'case management', 'intellectual property law',
+        'corporate law', 'employment law', 'legal writing', 'legal analysis',
+        'due diligence', 'risk management', 'negotiations', 'mediation',
+        'legal ethics', 'court procedures', 'legal consultation', 'policy development',
+        'compliance training', 'regulatory reporting', 'legal technology',
+        'document review', 'legal research tools', 'legal project management',
+        'administrative law', 'civil litigation', 'criminal law', 'family law',
+
+        # Marketing & Communications
+        'marketing strategy', 'brand management', 'social media marketing',
+        'content marketing', 'digital marketing', 'email marketing', 'seo/sem',
+        'public relations', 'advertising', 'market research', 'campaign management',
+        'copywriting', 'brand development', 'marketing analytics', 'media planning',
+        'event planning', 'crisis communication', 'community management',
+        'influencer marketing', 'marketing automation', 'customer segmentation',
+        'competitive analysis', 'marketing roi', 'brand storytelling',
+        'marketing communications', 'presentation skills', 'public speaking',
+
+        # Human Resources
+        'recruitment', 'talent acquisition', 'employee relations', 'performance management',
+        'compensation & benefits', 'hr policies', 'workforce planning', 'training & development',
+        'succession planning', 'employee engagement', 'labor relations', 'hr analytics',
+        'organizational development', 'diversity & inclusion', 'employee onboarding',
+        'hr compliance', 'benefits administration', 'employee wellness', 'conflict resolution',
+        'hr information systems', 'payroll management', 'workplace safety',
+        'employee retention', 'hr strategy', 'talent management', 'change management',
+
+        # Customer Service & Support
+        'customer support', 'conflict resolution', 'problem solving', 'service delivery',
+        'customer satisfaction', 'quality assurance', 'complaint resolution',
+        'call center operations', 'customer feedback', 'service level agreements',
+        'technical support', 'help desk management', 'customer experience',
+        'service optimization', 'customer retention', 'account management',
+        'client relations', 'service metrics', 'customer service tools',
+        'escalation management', 'customer analytics', 'service standards',
+
+        # Research & Analysis
+        'research methodology', 'data collection', 'quantitative analysis',
+        'qualitative analysis', 'research design', 'statistical analysis',
+        'survey design', 'focus groups', 'research ethics', 'literature review',
+        'experimental design', 'research validation', 'data interpretation',
+        'research documentation', 'hypothesis testing', 'research presentation',
+        'academic writing', 'grant writing', 'peer review', 'publication',
+        'research compliance', 'research coordination', 'clinical research',
+
+        # Hospitality & Tourism
+        'hotel management', 'restaurant operations', 'event planning',
+        'hospitality marketing', 'guest services', 'food & beverage management',
+        'tourism development', 'reservation systems', 'revenue management',
+        'hospitality law', 'customer service', 'facility management',
+        'menu planning', 'inventory control', 'housekeeping operations',
+        'front desk operations', 'concierge services', 'travel planning',
+        'tourism marketing', 'hospitality technology', 'guest relations',
+
+        # Social Services
+        'case management', 'counseling', 'social work', 'community outreach',
+        'crisis intervention', 'program development', 'advocacy', 'mental health',
+        'family services', 'substance abuse', 'behavioral health', 'group facilitation',
+        'needs assessment', 'resource coordination', 'intervention planning',
+        'social service programs', 'community resources', 'support services',
+        'rehabilitation services', 'youth services', 'elder care', 'disability services',
+
+        # Environmental & Sustainability
+        'environmental assessment', 'sustainability planning', 'environmental compliance',
+        'waste management', 'renewable energy', 'environmental impact analysis',
+        'conservation', 'environmental monitoring', 'green building', 'carbon footprint',
+        'environmental regulations', 'sustainable development', 'energy efficiency',
+        'environmental protection', 'natural resource management', 'pollution control',
+        'environmental education', 'climate change', 'biodiversity', 'eco-friendly practices',
+
+        # Retail & Sales
+        'retail management', 'sales techniques', 'merchandising', 'inventory management',
+        'point of sale systems', 'retail operations', 'sales forecasting',
+        'customer service', 'visual merchandising', 'retail marketing',
+        'store operations', 'loss prevention', 'category management',
+        'pricing strategies', 'sales analytics', 'retail technology',
+        'customer experience', 'brand representation', 'sales training',
+        'retail planning', 'market analysis', 'product knowledge'
     ]
     
     # Try to extract skills using a pattern
@@ -1180,6 +1757,27 @@ def extract_skills_from_text(skills_text):
     
     return valid_skills
 
+def extract_positions(experience_text):
+    """
+    Extract job positions/titles from experience text using regex patterns.
+    Returns a list of identified positions.
+    """
+    if not experience_text:
+        return []
+    position_pattern = r'(?:^|\n)([A-Z][a-zA-Z\s]+)(?=\s*\b(?:at|,|\-|\(|from|to)\b)'
+    positions = re.findall(position_pattern, experience_text)
+    return [pos.strip() for pos in positions if len(pos.strip()) > 3]
+
+def extract_degrees(education_text):
+    """
+    Extract education degrees from education text using regex patterns.
+    Returns a list of identified degrees.
+    """
+    if not education_text:
+        return []
+    degree_pattern = r'\b(?:Bachelor|Master|MBA|PhD|BS|BA|MS|MA|Doctor|Associate)\b(?:[^\n.]*)'
+    degrees = re.findall(degree_pattern, education_text, re.IGNORECASE)
+    return [deg.strip() for deg in degrees if len(deg.strip()) > 1]
     
 # Update analyze_resume to incorporate job description matching and achievement examples
 def analyze_resume(file, job_title, industry=None, custom_keywords=None, job_description=None):
@@ -1294,98 +1892,36 @@ The resume shows {'strong' if evaluation['relevance_score'] > 3 else 'moderate' 
     
     # Add section-specific feedback if sections exist
     if 'experience' in resume_sections:
-        result += "\n#### Work Experience Analysis:\n"
-        exp_length = len(resume_sections['experience'].split())
-        if exp_length > 300:
-            result += "- Your experience section is well-developed with sufficient detail.\n"
-            # Extract job titles/positions mentioned
-            positions = re.findall(r'(?:^|\n)([A-Z][a-zA-Z\s]+)(?=\s*\b(?:at|,|\-|\(|from|to)\b)', resume_sections['experience'])
-            if positions:
-                result += f"- Positions identified: {', '.join(positions[:3])}" + (f" and {len(positions)-3} more" if len(positions) > 3 else "") + "\n"
+        result += "\n#### Experience Analysis:\n"
+        positions = extract_positions(resume_sections['experience'])
+        if positions:
+            result += f"- Positions identified: {', '.join(positions[:3])}" + (f" and {len(positions)-3} more" if len(positions) > 3 else "") + "\n"
         else:
             result += "- Consider expanding your work experience with more specific achievements and responsibilities.\n"
     
     if 'education' in resume_sections:
         result += "\n#### Education Analysis:\n"
-        # Extract education details
-        degrees = re.findall(r'\b(?:Bachelor|Master|MBA|PhD|BS|BA|MS|MA|Doctor|Associate)\b(?:[^\n.]*)', resume_sections['education'])
+        degrees = extract_degrees(resume_sections['education'])
         if degrees:
             result += f"- Education credentials identified: {', '.join(degrees[:2])}" + (f" and more" if len(degrees) > 2 else "") + "\n"
         else:
             result += "- Consider formatting your education section to clearly highlight degrees and institutions.\n"
         
-        if is_student:
-            result += "- **Student Status Detected:** As a student, focus on relevant coursework, projects, and technical skills to compensate for limited work experience.\n"
-    
-    # Add skill analysis with improved extraction
     if 'skills' in resume_sections:
         result += "\n#### Skills Analysis:\n"
-        # Extract skills mentioned using our improved function
-        skill_text = resume_sections['skills']
-        skill_length = len(skill_text.split())
-        
+        skill_length = len(resume_sections['skills'].split())
         if skill_length > 50:
             result += "- Comprehensive skills section with good detail.\n"
         else:
             result += "- Consider expanding your skills section with more specific technical and soft skills.\n"
-        
-        # Use improved skill extraction
-        skills_list = extract_skills_from_text(skill_text)
-        if skills_list:
-            result += f"- **Key skills identified:** {', '.join(skills_list[:5])}" + (f" and {len(skills_list)-5} more" if len(skills_list) > 5 else "") + "\n"
-            
-        # Add role-specific skill gap analysis based on job title analysis
-        if job_analysis['skills']:
-            # Match job-specific skills the resume mentions
-            role_specific_skills = job_analysis['skills']
-            found_role_skills = [skill for skill in role_specific_skills if any(skill.lower() in s.lower() for s in skills_list)]
-            missing_role_skills = [skill for skill in role_specific_skills if not any(skill.lower() in s.lower() for s in skills_list)]
-            
-            if found_role_skills:
-                result += f"- **{job_title}-relevant skills identified:** {', '.join(found_role_skills[:5])}\n"
-            
-            if missing_role_skills and len(missing_role_skills) > 2:
-                result += f"- **Consider adding these {job_title}-relevant skills if you have experience with them:** {', '.join(missing_role_skills[:5])}\n"
     
-    # Add job-specific recommendations based on job analysis
-    result += f"\n#### {job_title}-Specific Recommendations:\n"
-    
-    # Get job-specific recommendations from our function
-    role_recommendations = job_recommendations[:4]  # Take top 4 recommendations
-    
-    for recommendation in role_recommendations:
-        result += f"- {recommendation}\n"
-        
-    # Add seniority-specific advice
-    if job_analysis['seniority'] == 'junior':
-        result += "- For entry-level positions, emphasize your education, relevant coursework, and willingness to learn\n"
-    elif job_analysis['seniority'] == 'senior':
-        result += "- For senior positions, emphasize leadership experience and strategic contributions\n"
-    elif job_analysis['seniority'] == 'manager':
-        result += "- For management positions, highlight team leadership, budget management, and strategic planning\n"
-    
-    # Add strategic recommendations
-    result += "\n#### Strategic Recommendations:\n"
-    
-    strategic_recommendations = job_recommendations[4:] if len(job_recommendations) > 4 else ["Tailor your resume for each application", "Quantify achievements whenever possible"]
-    
-    for i, recommendation in enumerate(strategic_recommendations[:3]):
-        result += f"- **Tip {i+1}:** {recommendation}\n"
-    
-    # Add resume structure analysis
-    result += "\n#### Resume Structure Analysis:\n"
-    missing_sections = []
-    for section in ['summary', 'experience', 'education', 'skills', 'projects']:
-        if section not in resume_sections:
-            # For students, don't penalize missing experience as heavily
-            if section == 'experience' and is_student:
-                continue
-            missing_sections.append(section)
-    
+    # Check for missing essential sections
+    essential_sections = {'summary', 'experience', 'education', 'skills'}
+    missing_sections = essential_sections - set(resume_sections.keys())
     if missing_sections:
-        result += f"- Consider adding these missing sections: {', '.join(missing_sections)}.\n"
-    else:
-        result += "- All essential resume sections are present.\n"
+        result += "\n## Missing Sections\n"
+        for section in missing_sections:
+            result += f"⚠ Consider adding {section} section\n"
     
     word_count = len(text.split())
     result += f"- Resume length: {word_count} words ({word_count/250:.1f} pages equivalent).\n"
@@ -1778,9 +2314,9 @@ def extract_job_description_keywords(job_description_text):
     keywords.extend([match[0].strip().lower() for match in exp_matches])
     
     # Look for education requirements
-    edu_pattern = r'\b(Bachelor|Master|MBA|PhD|BS|BA|MS|MA|Doctorate|Associate)(?:\'s)?\s+(?:degree)?\s+(?:in)?\s+([A-Za-z\s]{3,40}?)(?:\.|\band\b|,|\n|\)|or)'
+    edu_pattern = r'\b(Bachelor|Master|MBA|PhD|BS|BA|MS|MA|Doctor|Associate)\b(?:[^\n.]*)'
     edu_matches = re.findall(edu_pattern, job_description_text, re.IGNORECASE)
-    keywords.extend([f"{match[0]} in {match[1]}".strip().lower() for match in edu_matches])
+    keywords.extend([match.strip().lower() for match in edu_matches])
     
     # Extract required certifications
     cert_pattern = r'\b(certifications?|certified|license[ds]?)\s+(?:in|as)?\s+([A-Za-z0-9+#\s]{3,40}?)(?:\.|\band\b|,|\n|\)|or)'
@@ -1839,7 +2375,7 @@ def analyze_resume_job_match(resume_text, job_description, job_title):
         else:
             missing_keywords.append(keyword)
     
-    # Calculate match score (0-100%)
+    # Calculate match score if job keywords exist
     if job_keywords:
         match_score = (len(matching_keywords) / len(job_keywords)) * 100
     else:
@@ -1858,21 +2394,20 @@ def analyze_resume_job_match(resume_text, job_description, job_title):
 
 # Helper function to extract key sections from resume text
 def extract_key_info(text):
-    """
-    Extract key sections from resume text for additional analysis
-    """
+    """Extract key information from resume text."""
     sections = {}
-    # Attempt to extract experience section
+    
+    # Extract summary/objective section
+    summary_match = re.search(r'(summary|objective|profile).*?(?=experience|education|skills|$)', 
+                            text, re.IGNORECASE | re.DOTALL)
+    if summary_match:
+        sections['summary'] = summary_match.group(0)[:300]
+    
+    # Extract experience section
     exp_match = re.search(r'(experience|work|employment).*?(?=education|skills|references|$)', 
-                          text, re.IGNORECASE | re.DOTALL)
+                         text, re.IGNORECASE | re.DOTALL)
     if exp_match:
         sections['experience'] = exp_match.group(0)[:500]
-    
-    # Extract skills section
-    skills_match = re.search(r'(skills|technologies|proficiencies).*?(?=experience|education|references|$)', 
-                             text, re.IGNORECASE | re.DOTALL)
-    if skills_match:
-        sections['skills'] = skills_match.group(0)[:300]
     
     # Extract education section
     edu_match = re.search(r'(education|academic|degree).*?(?=experience|skills|references|$)', 
@@ -1881,3 +2416,135 @@ def extract_key_info(text):
         sections['education'] = edu_match.group(0)[:300]
     
     return sections
+
+
+
+
+
+def analyze_section_with_ai(section_text, section_type, job_title, model=None, tokenizer=None):
+    """
+    Use AI to provide deeper analysis of resume sections.
+    Returns detailed insights and recommendations.
+    """
+    analysis = []
+    
+    # Get AI-powered insights if model is available
+    if model and tokenizer:
+        ai_insights = get_ai_insights(section_text, f"{section_type} section for {job_title} role", model, tokenizer)
+        analysis.extend(ai_insights)
+    
+    if not section_text:
+        analysis.append("⚠ This section is empty or missing")
+        return analysis
+        
+    if section_type == 'experience':
+        # Analyze impact and achievements
+        achievements = detect_achievements(section_text)
+        if achievements:
+            analysis.append("✓ Strong action verbs and quantifiable achievements detected")
+        else:
+            analysis.append("⚠ Consider adding more quantifiable achievements and metrics")
+            
+        # Check for relevant experience alignment
+        if job_title.lower() in section_text.lower():
+            analysis.append("✓ Experience aligns well with target role")
+        else:
+            analysis.append("⚠ Consider highlighting experience more relevant to " + job_title)
+            
+        # Analyze experience progression
+        if len(section_text.split('\n')) > 5:
+            analysis.append("✓ Shows clear career progression")
+        
+    elif section_type == 'education':
+        # Check for relevant coursework
+        if 'coursework' in section_text.lower():
+            analysis.append("✓ Relevant coursework included")
+        else:
+            analysis.append("⚠ Consider adding relevant coursework if recent graduate")
+            
+        # Check for academic achievements
+        academic_keywords = ['honors', 'distinction', 'gpa', 'dean', 'scholarship']
+        if any(keyword in section_text.lower() for keyword in academic_keywords):
+            analysis.append("✓ Academic achievements highlighted")
+            
+    elif section_type == 'skills':
+        # Analyze skill categorization
+        if '\n' in section_text:
+            analysis.append("✓ Skills well-organized into categories")
+        else:
+            analysis.append("⚠ Consider organizing skills into clear categories")
+            
+        # Check for skill levels
+        proficiency_keywords = ['proficient', 'experienced', 'familiar', 'expert']
+        if any(keyword in section_text.lower() for keyword in proficiency_keywords):
+            analysis.append("✓ Skill proficiency levels indicated")
+        else:
+            analysis.append("⚠ Consider indicating proficiency levels for key skills")
+            
+    elif section_type == 'summary':
+        # Check for personal branding
+        if job_title.lower() in section_text.lower():
+            analysis.append("✓ Summary aligned with target role")
+        else:
+            analysis.append("⚠ Consider tailoring summary to target role")
+            
+        # Check for unique value proposition
+        if 'years' in section_text.lower() or 'experience' in section_text.lower():
+            analysis.append("✓ Experience level clearly stated")
+            
+    return analysis
+
+def initialize_ai_model():
+    """
+    Initialize the Qwen2.5-1.5B-Instruct model for enhanced resume analysis.
+    """
+    model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            device_map="auto",
+            trust_remote_code=True,
+            torch_dtype=torch.float16  # Use float16 for efficiency
+        )
+        return model, tokenizer
+    except Exception as e:
+        print(f"Warning: Could not initialize AI model: {e}")
+        return None, None
+
+def get_ai_insights(text, context, model, tokenizer):
+    """
+    Get AI-powered insights about the resume text.
+    """
+    if not model or not tokenizer:
+        return []
+        
+    prompt = f"""Analyze this resume section in the context of {context}. 
+    Provide specific, actionable feedback about strengths and areas for improvement.
+    Focus on relevance, impact, and clarity.
+    
+    Resume text:
+    {text}
+    """
+    
+    try:
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=200,
+            temperature=0.7,
+            top_p=0.9,
+            repetition_penalty=1.1
+        )
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response.split("Resume text:")[0].strip().split("\n")
+    except Exception as e:
+        print(f"Warning: AI analysis failed: {e}")
+        return []
+
+# Initialize the model when the script starts
+try:
+    model, tokenizer = initialize_ai_model()
+except Exception as e:
+    print(f"Warning: Could not initialize AI model. Running in basic mode. Error: {e}")
+    model, tokenizer = None, None
