@@ -13,6 +13,7 @@ from nltk.corpus import stopwords
 try:
     import nltk
     nltk.download('punkt', quiet=True)
+    nltk.download('punkt_tab')
     nltk.download('averaged_perceptron_tagger', quiet=True)
     nltk.download('maxent_ne_chunker', quiet=True)
     nltk.download('words', quiet=True)
