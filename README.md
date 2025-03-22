@@ -1,3 +1,9 @@
+---
+title: Santek_Resume_Evaluation
+app_file: self.py
+sdk: gradio
+sdk_version: 5.19.0
+---
 ﻿# AI Resume Evaluator Pro
 
 ## Overview
