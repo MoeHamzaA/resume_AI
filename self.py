@@ -1401,15 +1401,11 @@ with gr.Blocks(title="AI Resume Evaluator Pro", theme=gr.themes.Soft(primary_hue
     # Header with logo-like design
     with gr.Row(equal_height=True):
         with gr.Column(scale=1):
-            gr.HTML("""
-                <div style="text-align: center; margin-bottom: 10px;">
-                    <img src="https://img.icons8.com/fluency/96/resume.png" width="80" height="80" alt="Resume Logo">
-                </div>
-            """)
+            gr.Image(value="sm_logo.png", show_label=False, container=False, height=80, width=80)
         with gr.Column(scale=5):
             gr.HTML("""
                 <div style="text-align: center;">
-                    <h1 style="margin: 0; font-size: 2.5rem; font-weight: 700; background: linear-gradient(90deg, #4338ca, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">AI Resume Evaluator Pro</h1>
+                    <h1 style="margin: 0; font-size: 2.5rem; font-weight: 700; background: linear-gradient(90deg, #4338ca, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Santek AI Resume Evaluator Pro</h1>
                     <p style="margin-top: 0; font-size: 1.1rem; color: #6b7280;">Upload your resume and get AI-powered feedback tailored to your target role</p>
                 </div>
             """)
@@ -1595,6 +1591,9 @@ with gr.Blocks(title="AI Resume Evaluator Pro", theme=gr.themes.Soft(primary_hue
     <div style="margin-top: 30px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 15px;">
         <div style="font-size: 0.85rem; color: #6b7280;">
             AI Resume Evaluator Pro | Your resume data is processed locally and not stored
+        </div>
+        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 5px;">
+            Owned by <a href="https://www.santekmicrosolutions.com/" target="_blank" style="color: #4338ca; text-decoration: none;">Santek Micro Solutions</a> | IT Services and IT Consulting | Phone: <a href="tel:4169518616" style="color: #4338ca; text-decoration: none;">416-951-8616</a>
         </div>
     </div>
     """)
