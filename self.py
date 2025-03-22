@@ -9,6 +9,18 @@ import nltk
 import time
 from nltk.corpus import stopwords
 
+# Initialize NLTK data
+try:
+    import nltk
+    nltk.download('punkt', quiet=True)
+    nltk.download('averaged_perceptron_tagger', quiet=True)
+    nltk.download('maxent_ne_chunker', quiet=True)
+    nltk.download('words', quiet=True)
+    nltk.download('stopwords', quiet=True)
+    print("NLTK data downloaded successfully!")
+except Exception as e:
+    print(f"Warning: NLTK data download failed but continuing anyway. Error: {e}")
+
 # Download necessary NLTK resources
 nltk.download('punkt', quiet=True)
 nltk.download('stopwords', quiet=True)
